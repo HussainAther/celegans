@@ -12,7 +12,7 @@ This project simulates the **lineage tree of C. elegans**, incorporating **syncy
 ## Installation
 Clone this repository and install dependencies:
 ```bash
-git clone https://github.com/yourusername/c-elegans-lineage.git
+git clone https://github.com/HussainAther/c-elegans-lineage.git
 cd c-elegans-lineage
 pip install -r requirements.txt
 ```
