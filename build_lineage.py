@@ -59,7 +59,42 @@ class C_ElegansLineage:
                 dfs(child, depth + 1)
         dfs(node, 0)
         return depths
-    
+
+    def annotate_syncytial_cell(self, node):
+        """Mark a node as syncytial with metadata."""
+        self.lineage_tree.nodes[node]["syncytial"] = True
+        self.lineage_tree.nodes[node]["nuclei_count"] = random.randint(2, 8)  # Example: # of nuclei
+        self.lineage_tree.nodes[node]["shared_cytoplasm"] = True
+
+    def add_syncytial_cells(self, num_cells=5):
+        """Randomly insert syncytial cells into the lineage tree with annotations."""
+        for _ in range(num_cells):
+            parent = random.choice(list(self.lineage_tree.nodes))
+            new_cell = f"Sync_{random.randint(1, 1000)}"
+            self.lineage_tree.add_edge(parent, new_cell)
+            self.annotate_syncytial_cell(new_cell)
+
+    def get_syncytial_cells(self):
+        """Return a list of syncytial cells in the tree."""
+        return [n for n, attr in self.lineage_tree.nodes(data=True) if attr.get("syncytial", False)]
+
+    def visualize_lineage(self):
+        """Display the lineage tree graphically, highlighting syncytial cells."""
+        plt.figure(figsize=(14, 10))
+        pos = nx.spring_layout(self.lineage_tree, seed=42)
+        
+        sync_cells = self.get_syncytial_cells()
+        normal_cells = [n for n in self.lineage_tree.nodes if n not in sync_cells]
+
+        nx.draw_networkx_nodes(self.lineage_tree, pos, nodelist=normal_cells, node_color='lightblue', node_size=2500)
+        nx.draw_networkx_nodes(self.lineage_tree, pos, nodelist=sync_cells, node_color='orange', node_size=2800)
+        nx.draw_networkx_edges(self.lineage_tree, pos, edge_color='gray')
+        nx.draw_networkx_labels(self.lineage_tree, pos, font_size=10)
+        
+        plt.title("C. elegans Lineage Tree (Syncytial Cells in Orange)")
+        plt.axis('off')
+        plt.show()
+
     def print_lineage(self):
         """Print lineage tree in a structured format."""
         depths = self.get_lineage_depth()
