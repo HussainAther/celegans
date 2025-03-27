@@ -1,10 +1,24 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+from matplotlib.patches import Patch
+
+# Color palette for each fate category
+FATE_COLORS = {
+    "neuron": "purple",
+    "muscle": "red",
+    "skin": "tan",
+    "gut": "green",
+    "germline": "blue",
+    "progenitor": "lightblue",
+    "undifferentiated": "gray",
+    None: "lightgray"  # fallback for missing fates
+}
+
 
 def hierarchy_pos(G, root="Zygote", width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5, pos=None, parent=None):
     """
-    Recursive function to calculate hierarchical layout for a tree.
-    Credit: Joel (StackOverflow) https://stackoverflow.com/a/29597209
+    Recursively compute a hierarchical layout for a directed tree.
+    Source: adapted from StackOverflow (Joel, https://stackoverflow.com/a/29597209)
     """
     if pos is None:
         pos = {root: (xcenter, vert_loc)}
@@ -22,33 +36,36 @@ def hierarchy_pos(G, root="Zygote", width=1., vert_gap=0.2, vert_loc=0, xcenter=
     return pos
 
 
-def visualize_lineage_tree(G, syncytial_highlight=True, title="C. elegans Lineage Tree (Hierarchical)"):
+def visualize_lineage_tree(G, color_by_fate=True, title="C. elegans Lineage Tree (Hierarchical)"):
     """
-    Visualize the lineage tree with a hierarchical layout.
+    Visualize the lineage tree using a hierarchical layout.
     
     Parameters:
         G: networkx.DiGraph
-        syncytial_highlight: bool — if True, highlight syncytial cells in orange
+        color_by_fate: bool — whether to color nodes by their fate annotation
         title: str — plot title
     """
     pos = hierarchy_pos(G, root="Zygote")
+    node_colors = []
+    for node in G.nodes:
+        fate = G.nodes[node].get("fate") if color_by_fate else None
+        color = FATE_COLORS.get(fate, "lightgray")
+        node_colors.append(color)
 
-    # Partition nodes
-    if syncytial_highlight:
-        sync_cells = [n for n, d in G.nodes(data=True) if d.get("syncytial")]
-        normal_cells = [n for n in G.nodes if n not in sync_cells]
-    else:
-        sync_cells = []
-        normal_cells = list(G.nodes)
-
-    # Plot
     plt.figure(figsize=(14, 10))
-    nx.draw_networkx_nodes(G, pos, nodelist=normal_cells, node_color='lightblue', node_size=2500)
-    nx.draw_networkx_nodes(G, pos, nodelist=sync_cells, node_color='orange', node_size=2800)
-    nx.draw_networkx_edges(G, pos, edge_color='gray')
-    nx.draw_networkx_labels(G, pos, font_size=10)
+    nx.draw(G, pos, with_labels=True, node_color=node_colors,
+            edge_color='gray', node_size=2500, font_size=9)
 
     plt.title(title)
     plt.axis('off')
+
+    if color_by_fate:
+        legend_elements = [
+            Patch(facecolor=color, edgecolor='black', label=fate.capitalize() if fate else "Unknown")
+            for fate, color in FATE_COLORS.items() if fate is not None
+        ]
+        plt.legend(handles=legend_elements, title="Cell Fates", loc='lower left', bbox_to_anchor=(1, 0.5))
+
+    plt.tight_layout()
     plt.show()
 
