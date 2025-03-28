@@ -32,15 +32,20 @@ def hierarchy_pos(G, root="Zygote", width=1., vert_gap=0.2, vert_loc=0, xcenter=
                                 vert_loc=vert_loc - vert_gap, xcenter=next_x, pos=pos, parent=root)
     return pos
 
-
-def visualize_lineage_tree(G, color_by_fate=True, title="C. elegans Lineage Tree (Hierarchical)",
-                           save_path=None, dpi=300):
+def visualize_lineage_tree(
+    G,
+    color_by_fate=True,
+    title="C. elegans Lineage Tree (Hierarchical)",
+    save_path=None,
+    dpi=300,
+    show=True
+):
     """
     Visualize the lineage tree with:
     - Hierarchical layout
     - Color-coded fates
     - Shape-coded syncytial status
-    - Optional image export
+    - Optional image export without display
 
     Parameters:
         G: networkx.DiGraph
@@ -48,6 +53,7 @@ def visualize_lineage_tree(G, color_by_fate=True, title="C. elegans Lineage Tree
         title: str — plot title
         save_path: str or None — file path to save image (e.g. "tree.png")
         dpi: int — resolution for saved figure
+        show: bool — whether to display the figure in a window
     """
     pos = hierarchy_pos(G, root="Zygote")
 
@@ -100,5 +106,8 @@ def visualize_lineage_tree(G, color_by_fate=True, title="C. elegans Lineage Tree
         plt.savefig(save_path, dpi=dpi, bbox_inches='tight')
         print(f"✅ Lineage tree saved to {save_path}")
 
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
