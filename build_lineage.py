@@ -73,6 +73,57 @@ class C_ElegansLineage:
             new_cell = f"Sync_{random.randint(1, 1000)}"
             self.lineage_tree.add_edge(parent, new_cell)
             self.annotate_syncytial_cell(new_cell)
+    
+    def generate_fate_specific_images(G, output_dir="fate_images", dpi=300):
+        """
+        Auto-generate lineage tree images, one per unique cell fate.
+        Each image highlights cells of that fate, others are grayed out.
+        """
+        import os
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        unique_fates = set(nx.get_node_attributes(G, "fate").values())
+
+        for fate in unique_fates:
+            pos = hierarchy_pos(G, root="Zygote")
+            node_colors = []
+            circle_nodes, square_nodes = [], []
+            circle_colors, square_colors = []
+
+           for node in G.nodes:
+               node_fate = G.nodes[node].get("fate")
+               if node_fate == fate:
+                   color = FATE_COLORS.get(fate, "lightgray")
+               else:
+                   color = "lightgray"
+
+               if G.nodes[node].get("syncytial"):
+                   square_nodes.append(node)
+                   square_colors.append(color)
+               else:
+                   circle_nodes.append(node)
+                   circle_colors.append(color)
+
+        fig = plt.figure(figsize=(14, 10))
+        ax = plt.gca()
+
+        nx.draw_networkx_edges(G, pos, edge_color='gray', ax=ax)
+        nx.draw_networkx_nodes(G, pos, nodelist=circle_nodes, node_color=circle_colors,
+                                   node_shape='o', node_size=2500, ax=ax)
+        nx.draw_networkx_nodes(G, pos, nodelist=square_nodes, node_color=square_colors,
+                                   node_shape='s', node_size=2500, ax=ax)
+        nx.draw_networkx_labels(G, pos, font_size=9, ax=ax)
+
+        plt.title(f"C. elegans Lineage — {fate.capitalize()} Cells Highlighted")
+        plt.axis('off')
+
+        plt.tight_layout()
+        filename = f"{output_dir}/lineage_fate_{fate}.png"
+        plt.savefig(filename, dpi=dpi, bbox_inches='tight')
+        plt.close()
+        print(f"✅ Saved {filename}")
+
 
     def get_syncytial_cells(self):
         """Return a list of syncytial cells in the tree."""
