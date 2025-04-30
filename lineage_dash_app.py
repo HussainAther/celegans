@@ -87,9 +87,11 @@ app.layout = html.Div([
                 'line-color': '#ccc',
                 'width': 2
             }},
-        ]
+        ],
+        userZoomingEnabled=True,
+        userPanningEnabled=True
     ),
-    html.Div(id='hover-data', style={'marginTop': '20px'})
+    html.Div(id='hover-data', style={'marginTop': '20px', 'fontSize': '16px'})
 ])
 
 @app.callback(
