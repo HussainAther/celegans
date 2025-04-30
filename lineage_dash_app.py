@@ -95,9 +95,34 @@ app.layout = html.Div([
 ])
 
 @app.callback(
-    Output('cytoscape-lineage', 'elements'),
-    Input('time-slider', 'value')
+    Output('hover-data', 'children'),
+    Input('cytoscape-lineage', 'mouseoverNodeData')
 )
+def display_hover_metadata(node_data):
+    if node_data is None:
+        return "Hover over a cell to see metadata."
+
+    node_id = node_data.get('id')
+    node = G.nodes.get(node_id, {})
+
+    fate = node.get("fate", "Unknown")
+    syncytial = node.get("syncytial", False)
+    div_time = node.get("division_time", "N/A")
+    nuclei = node.get("nuclei_count", "-") if syncytial else "-"
+
+    return html.Div([
+        html.Strong(f"🧬 {node_id}"),
+        html.Br(),
+        f"Fate: {fate}",
+        html.Br(),
+        f"Division time: {div_time} min",
+        html.Br(),
+        f"Syncytial: {'Yes' if syncytial else 'No'}",
+        html.Br(),
+        f"Nuclei: {nuclei}"
+    ])
+
+
 def update_elements(time_value):
     return nx_to_cytoscape(G, time_cutoff=time_value)
 
