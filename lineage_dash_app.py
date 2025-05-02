@@ -6,12 +6,12 @@ import networkx as nx
 from build_initial_lineage import build_lineage_tree, add_random_syncytial_cells
 from fate_utils import assign_cell_fates
 
-# Initialize lineage tree with annotations
+# Initialize lineage graph
 G = build_lineage_tree()
 add_random_syncytial_cells(G, num_cells=10)
 assign_cell_fates(G)
 
-# Color map for cell fates
+# Fate → color map
 FATE_COLORS = {
     "neuron": "purple",
     "muscle": "red",
@@ -23,8 +23,8 @@ FATE_COLORS = {
     None: "lightgray"
 }
 
-# Convert NetworkX → Cytoscape format
-def nx_to_cytoscape(G, time_cutoff=None):
+# Convert NetworkX to Cytoscape elements
+def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None):
     elements = []
     for node in G.nodes:
         div_time = G.nodes[node].get("division_time", 999)
@@ -32,6 +32,9 @@ def nx_to_cytoscape(G, time_cutoff=None):
             continue
 
         fate = G.nodes[node].get("fate", "unknown")
+        if fate_filter and fate != fate_filter:
+            continue
+
         sync = G.nodes[node].get("syncytial", False)
         shape = "rectangle" if sync else "ellipse"
         color = FATE_COLORS.get(fate, "lightgray")
@@ -49,19 +52,34 @@ def nx_to_cytoscape(G, time_cutoff=None):
     for source, target in G.edges:
         stime = G.nodes[source].get("division_time", 999)
         ttime = G.nodes[target].get("division_time", 999)
-        if time_cutoff is None or (stime <= time_cutoff and ttime <= time_cutoff):
-            elements.append({'data': {'source': source, 'target': target}})
+        if time_cutoff is not None and (stime > time_cutoff or ttime > time_cutoff):
+            continue
+        if fate_filter and (G.nodes[target].get("fate") != fate_filter):
+            continue
+        elements.append({'data': {'source': source, 'target': target}})
 
     return elements
 
-# Create Dash app
+# Initialize Dash app
 app = dash.Dash(__name__)
 app.title = "🧬 C. elegans Lineage Viewer"
 
-# App layout
+# Layout
 app.layout = html.Div([
-    html.H2("C. elegans Lineage Tree"),
-    
+    html.H2("C. elegans Lineage Tree Viewer"),
+
+    html.Div([
+        html.Label("Filter by Fate:"),
+        dcc.Dropdown(
+            id='fate-filter',
+            options=[{'label': f.capitalize(), 'value': f} for f in FATE_COLORS.keys() if f],
+            value=None,
+            placeholder="Show all fates",
+            clearable=True,
+            style={'width': '300px'}
+        )
+    ], style={'margin': '20px'}),
+
     html.Div([
         dcc.Slider(
             id='time-slider',
@@ -70,7 +88,7 @@ app.layout = html.Div([
             value=0,
             marks={i: f"{i} min" for i in range(0, 65, 5)},
             tooltip={"placement": "bottom"}
-        ),
+        )
     ], style={'margin': '20px'}),
 
     cyto.Cytoscape(
@@ -101,15 +119,16 @@ app.layout = html.Div([
     html.Div(id='click-data', style={'marginTop': '20px', 'fontSize': '16px'})
 ])
 
-# Slider callback: update lineage view by time
+# Update graph based on slider + dropdown
 @app.callback(
     Output('cytoscape-lineage', 'elements'),
-    Input('time-slider', 'value')
+    Input('time-slider', 'value'),
+    Input('fate-filter', 'value')
 )
-def update_elements(time_value):
-    return nx_to_cytoscape(G, time_cutoff=time_value)
+def update_elements(time_value, selected_fate):
+    return nx_to_cytoscape(G, time_cutoff=time_value, fate_filter=selected_fate)
 
-# Hover callback: show quick metadata
+# Hover info
 @app.callback(
     Output('hover-data', 'children'),
     Input('cytoscape-lineage', 'mouseoverNodeData')
@@ -133,7 +152,7 @@ def display_hover_metadata(node_data):
         f"Nuclei: {node.get('nuclei_count', '-') if node.get('syncytial') else '-'}"
     ])
 
-# Click callback: pin metadata
+# Click info
 @app.callback(
     Output('click-data', 'children'),
     Input('cytoscape-lineage', 'tapNodeData')
@@ -157,7 +176,7 @@ def display_click_metadata(node_data):
         f"Nuclei: {node.get('nuclei_count', '-') if node.get('syncytial') else '-'}"
     ])
 
-# Run the app
+# Run server
 if __name__ == '__main__':
     app.run_server(debug=True)
 
