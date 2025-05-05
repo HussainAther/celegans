@@ -2,6 +2,10 @@ import dash
 from dash import html, dcc, Input, Output
 import dash_cytoscape as cyto
 import networkx as nx
+import json
+
+from dash_extensions import Download
+from dash_extensions.snippets import send_string
 
 from build_initial_lineage import build_lineage_tree, add_random_syncytial_cells
 from fate_utils import assign_cell_fates
@@ -23,7 +27,7 @@ FATE_COLORS = {
     None: "lightgray"
 }
 
-# Convert NetworkX to Cytoscape elements
+# Convert NetworkX → Cytoscape format
 def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None):
     elements = []
     for node in G.nodes:
@@ -64,7 +68,7 @@ def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None):
 app = dash.Dash(__name__)
 app.title = "🧬 C. elegans Lineage Viewer"
 
-# Layout
+# App layout
 app.layout = html.Div([
     html.H2("C. elegans Lineage Tree Viewer"),
 
@@ -116,10 +120,26 @@ app.layout = html.Div([
 
     html.Div(id='hover-data', style={'marginTop': '20px', 'fontSize': '16px'}),
     html.Hr(),
-    html.Div(id='click-data', style={'marginTop': '20px', 'fontSize': '16px'})
+    html.Div(id='click-data', style={'marginTop': '20px', 'fontSize': '16px'}),
+
+    html.Hr(),
+    html.Div([
+        html.Button("⬇️ Download JSON", id="btn-download-json"),
+        Download(id="download-json"),
+
+        html.Br(), html.Br(),
+
+        html.Button("📷 Download PNG", id="btn-download-png", n_clicks=0),
+        dcc.Store(id="trigger-png"),
+
+        html.Br(), html.Br(),
+
+        html.Button("🖼️ Download SVG", id="btn-download-svg", n_clicks=0),
+        dcc.Store(id="trigger-svg"),
+    ], style={'margin': '20px'})
 ])
 
-# Update graph based on slider + dropdown
+# Update lineage view
 @app.callback(
     Output('cytoscape-lineage', 'elements'),
     Input('time-slider', 'value'),
@@ -176,7 +196,64 @@ def display_click_metadata(node_data):
         f"Nuclei: {node.get('nuclei_count', '-') if node.get('syncytial') else '-'}"
     ])
 
-# Run server
+# Download visible elements as JSON
+@app.callback(
+    Output("download-json", "data"),
+    Input("btn-download-json", "n_clicks"),
+    Input("time-slider", "value"),
+    Input("fate-filter", "value"),
+    prevent_initial_call=True
+)
+def download_json(n_clicks, time_value, selected_fate):
+    elements = nx_to_cytoscape(G, time_cutoff=time_value, fate_filter=selected_fate)
+    return send_string(json.dumps(elements, indent=2), filename="lineage_visible.json")
+
+# Client-side PNG export
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        let cy = window.cyto_cytoscape_lineage;
+        if (cy && n_clicks > 0) {
+            let png64 = cy.png({ full: true, scale: 2 });
+            let a = document.createElement("a");
+            a.href = png64;
+            a.download = "lineage_tree.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        return "";
+    }
+    """,
+    Output("trigger-png", "data"),
+    Input("btn-download-png", "n_clicks")
+)
+
+# Client-side SVG export
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        let cy = window.cyto_cytoscape_lineage;
+        if (cy && n_clicks > 0) {
+            let svgContent = cy.svg({ full: true, scale: 1 });
+            let blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = "lineage_tree.svg";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        return "";
+    }
+    """,
+    Output("trigger-svg", "data"),
+    Input("btn-download-svg", "n_clicks")
+)
+
+# Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
 
