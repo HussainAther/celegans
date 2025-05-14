@@ -1,51 +1,142 @@
-# C. elegans Lineage Tree Simulation
+You got it! ✨  
+Let’s make your **`README.md` GitHub-ready**, clear for users, and beautiful enough to impress both researchers and devs.
 
-## Overview
-This project simulates the **lineage tree of C. elegans**, incorporating **syncytial cells** to improve our understanding of differentiation and cell fate transitions. By using **network-based modeling**, we can visualize the lineage and analyze potential missing connections.
+---
 
-## Features
-- **Constructs a base lineage tree** with known divisions.
-- **Dynamically adds syncytial cells** to test hypotheses.
-- **Visualizes the lineage structure** using NetworkX & Matplotlib.
-- **Exports data** in GraphML format for further analysis.
+## 🧬 Example `README.md` for `c_elegans_lineage`
 
-## Installation
-Clone this repository and install dependencies:
+```markdown
+# 🧬 C. elegans Lineage Toolkit
+
+A Python toolkit and command-line interface (CLI) for modeling, visualizing, animating, and exporting the full embryonic cell lineage of *Caenorhabditis elegans*, including support for syncytial cells, fate annotations, and more.
+
+![screenshot](https://user-images.githubusercontent.com/example/demo.png)
+
+---
+
+## 📦 Features
+
+- ✅ Build and extend the full *C. elegans* lineage tree
+- 🧠 Annotate cells with fates (e.g., neuron, muscle, germline)
+- 🔶 Support for syncytial cells (shared cytoplasm, multi-nucleated)
+- 🎨 Visualize lineage trees with shape + color coding
+- 📤 Export to GraphML and JSON for analysis
+- 🎞️ Animate development over division time
+- 💻 Installable as a CLI tool: `lineage-cli`
+
+---
+
+## 🚀 Installation
+
 ```bash
-git clone https://github.com/HussainAther/c-elegans-lineage.git
-cd c-elegans-lineage
-pip install -r requirements.txt
+# Clone this repo
+git clone https://github.com/yourusername/c_elegans_lineage.git
+cd c_elegans_lineage
+
+# Install the CLI tool
+pip install .
 ```
 
-## Usage
-Run the simulation with:
+---
+
+## 🧪 Usage
+
+### Visualize and Save Lineage Tree
 ```bash
-python c_elegans_lineage.py
+lineage-cli visualize --fate --save tree.png
 ```
 
-This will:
-1. Generate a **C. elegans lineage tree**.
-2. **Randomly insert syncytial cells** into the lineage.
-3. **Display the lineage graph**.
-4. **Export the lineage** to a GraphML file (`c_elegans_lineage.graphml`).
-
-## Dependencies
-- `networkx` (Graph-based modeling)
-- `matplotlib` (Visualization)
-
-Install dependencies with:
+### Animate Development Over Time
 ```bash
-pip install -r requirements.txt
+lineage-cli animate --output dev.gif
 ```
 
-## Future Improvements
-- **Integration with real lineage datasets**.
-- **Machine learning-based prediction of missing connections**.
-- **Interactive visualization for exploring lineage evolution**.
+### Export for Cytoscape or Gephi
+```bash
+lineage-cli export --format graphml --output lineage.graphml
+```
 
-## Contribution
-Feel free to fork the repo, submit PRs, or reach out with suggestions!
+---
 
-## License
-MIT License
+## 📁 CLI Overview
 
+| Command        | Description                           |
+|----------------|---------------------------------------|
+| `visualize`    | Visualize tree as image (with fates, shapes) |
+| `export`       | Export to `.graphml` or `.json`       |
+| `animate`      | Create a GIF of lineage progression   |
+
+Use `--help` with any command:
+```bash
+lineage-cli visualize --help
+```
+
+---
+
+## 🧬 Biology Background
+
+*C. elegans* has a fully mapped embryonic lineage tree from zygote to all 959 somatic cells. This tool supports:
+- Syncytial cells like those in the germline
+- Fate mapping (e.g., AB → neurons, P lineage → germline)
+- Future support for gene expression overlays and simulation
+
+---
+
+## 🛠️ Developer Info
+
+### Folder Structure
+
+```
+c_elegans_lineage/
+├── c_elegans_lineage/
+│   ├── lineage_cli.py
+│   ├── build_initial_lineage.py
+│   ├── lineage_visualizer.py
+│   ├── animate_lineage.py
+│   └── ...
+├── setup.py
+├── README.md
+└── requirements.txt
+```
+
+### Run Locally
+
+```bash
+python c_elegans_lineage/lineage_cli.py visualize --fate --show
+```
+
+---
+
+## 👩‍🔬 Citation / Acknowledgments
+
+Built using:
+- [`networkx`](https://networkx.org/)
+- [`matplotlib`](https://matplotlib.org/)
+- Cell lineage data inspired by [WormAtlas](https://www.wormatlas.org/) and [WormBase](https://wormbase.org/)
+
+---
+
+## 📄 License
+
+MIT License © Your Name, 2025
+
+---
+
+## 🧠 Future Ideas
+
+- [ ] Gene expression overlays (marker heatmaps)
+- [ ] Interactive web UI with Dash or Streamlit
+- [ ] Real lineage dataset integration
+```
+
+---
+
+## 🔁 How to Use It:
+
+- Drop this `README.md` into your repo root.
+- Add a screenshot or GIF of your tree output if you have one.
+- Update `yourusername` and `demo.png` if publishing to GitHub.
+
+---
+
+Would you like help generating a **demo image or animated GIF** to embed here too? Or should we jump to the Dash App next? 😄
