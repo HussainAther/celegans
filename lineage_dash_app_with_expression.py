@@ -3,11 +3,14 @@ from dash import html, dcc, Input, Output
 import dash_cytoscape as cyto
 import networkx as nx
 import pandas as pd
+import json
+from dash_extensions import Download
+from dash_extensions.snippets import send_string
 
 from build_initial_lineage import build_lineage_tree, add_random_syncytial_cells
 from fate_utils import assign_cell_fates
 
-# Load or simulate gene expression data
+# Expression data
 expression_df = pd.DataFrame([
     {"cell": "ABa", "hlh-1": 0.89, "end-1": 0.85, "pal-1": 0.81},
     {"cell": "ABp", "hlh-1": 0.39, "end-1": 0.57, "pal-1": 0.23},
@@ -23,13 +26,11 @@ expression_df = pd.DataFrame([
     {"cell": "Z3",  "hlh-1": 0.11, "end-1": 0.65, "pal-1": 0.34}
 ])
 
-# Color map for cell fates
 FATE_COLORS = {
     "neuron": "purple", "muscle": "red", "skin": "tan", "gut": "green",
     "germline": "blue", "progenitor": "lightblue", "undifferentiated": "gray", None: "lightgray"
 }
 
-# Expression heatmap color scale
 def get_expression_color(val):
     if val is None:
         return "lightgray"
@@ -38,17 +39,14 @@ def get_expression_color(val):
     b = int(255 * val)
     return f"rgb({r},{g},{b})"
 
-# Build graph and attach metadata
 G = build_lineage_tree()
 add_random_syncytial_cells(G, num_cells=10)
 assign_cell_fates(G)
 
-# Attach expression to graph
 for _, row in expression_df.iterrows():
     if row["cell"] in G.nodes:
         G.nodes[row["cell"]]["expression"] = row.drop("cell").to_dict()
 
-# Graph to Cytoscape converter
 def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None, gene=None):
     elements = []
     for node in G.nodes:
@@ -70,11 +68,7 @@ def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None, gene=None):
 
         elements.append({
             'data': {'id': node, 'label': node},
-            'style': {
-                'shape': shape,
-                'background-color': color,
-                'label': node
-            }
+            'style': {'shape': shape, 'background-color': color, 'label': node}
         })
 
     for source, target in G.edges:
@@ -86,9 +80,8 @@ def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None, gene=None):
         elements.append({'data': {'source': source, 'target': target}})
     return elements
 
-# Build Dash app
 app = dash.Dash(__name__)
-app.title = "🧬 C. elegans Lineage + Gene Expression"
+app.title = "🧬 Lineage Tree with Gene Expression"
 
 app.layout = html.Div([
     html.H2("🧬 Lineage Tree with Gene Expression Overlay"),
@@ -102,6 +95,11 @@ app.layout = html.Div([
             style={'width': '300px'}
         )
     ], style={'margin': '10px'}),
+
+    html.Div([
+        html.Label("Expression Level Legend:"),
+        html.Img(src="https://i.imgur.com/Zc5ChbE.png", style={"width": "300px"})
+    ], id="legend-div", style={'margin': '10px', 'display': 'none'}),
 
     dcc.Slider(
         id='time-slider',
@@ -127,7 +125,11 @@ app.layout = html.Div([
         ],
         userZoomingEnabled=True,
         userPanningEnabled=True
-    )
+    ),
+
+    html.Div(id="hover-tooltip", style={"marginTop": "10px", "fontSize": "16px"}),
+    html.Button("⬇️ Download JSON", id="btn-download-json"),
+    Download(id="download-json")
 ])
 
 @app.callback(
@@ -137,6 +139,40 @@ app.layout = html.Div([
 )
 def update_tree(time_val, gene_val):
     return nx_to_cytoscape(G, time_cutoff=time_val, gene=gene_val)
+
+@app.callback(
+    Output("hover-tooltip", "children"),
+    Input("cytoscape-lineage", "mouseoverNodeData"),
+    Input("gene-selector", "value")
+)
+def show_hover_expression(node_data, gene):
+    if not node_data or not gene:
+        return "Hover on a node to see expression value."
+    node_id = node_data.get("id")
+    value = G.nodes[node_id].get("expression", {}).get(gene)
+    if value is not None:
+        return f"🧬 {node_id} – {gene}: {value:.2f}"
+    return f"{node_id} has no expression data for {gene}."
+
+@app.callback(
+    Output("legend-div", "style"),
+    Input("gene-selector", "value")
+)
+def toggle_legend(gene):
+    if gene:
+        return {'margin': '10px', 'display': 'block'}
+    return {'display': 'none'}
+
+@app.callback(
+    Output("download-json", "data"),
+    Input("btn-download-json", "n_clicks"),
+    Input("time-slider", "value"),
+    Input("gene-selector", "value"),
+    prevent_initial_call=True
+)
+def download_json(n_clicks, time_val, gene_val):
+    elements = nx_to_cytoscape(G, time_cutoff=time_val, gene=gene_val)
+    return send_string(json.dumps(elements, indent=2), filename="lineage_visible.json")
 
 if __name__ == "__main__":
     app.run_server(debug=True)
