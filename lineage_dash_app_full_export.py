@@ -84,6 +84,18 @@ app.layout = html.Div([
             placeholder="Select a gene to color nodes",
             style={"width": "300px"}
         ),
+        html.Label("Layout:"),
+dcc.Dropdown(
+    id="layout-selector",
+    options=[
+        {"label": "Tree (Breadthfirst)", "value": "breadthfirst"},
+        {"label": "Radial (Circle)", "value": "circle"}
+    ],
+    value="breadthfirst",
+    style={"width": "300px"}
+),
+html.Br(),
+
         html.Br(),
         html.Label("Search Cell by Name:"),
         dcc.Input(id="cell-search", type="text", placeholder="e.g., EMS", debounce=True),
@@ -147,6 +159,14 @@ def center_on_node(cell_name, elements):
     Input("btn-download-json", "n_clicks"),
     prevent_initial_call=True
 )
+
+@app.callback(
+    Output("cytoscape-lineage", "layout"),
+    Input("layout-selector", "value")
+)
+def update_layout(layout_name):
+    return {"name": layout_name}
+
 def download_json(n):
     lineage_json = nx.node_link_data(G)
     return send_string(json.dumps(lineage_json, indent=2), "lineage.json")
