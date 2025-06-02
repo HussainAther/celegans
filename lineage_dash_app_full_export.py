@@ -120,6 +120,18 @@ app.layout = html.Div([
         layout={"name": "breadthfirst"},
         style={"width": "100%", "height": "600px"},
     ),
+    cyto.Cytoscape(
+    id="cytoscape-lineage",
+    elements=nx_to_cytoscape(G),
+    layout={"name": "breadthfirst"},
+    style={"width": "100%", "height": "600px"},
+    userZoomingEnabled=True,
+    userPanningEnabled=True,
+    boxSelectionEnabled=True,
+    autoungrabify=False,  # allow user to grab/move nodes
+    autolock=False        # nodes are not locked by default
+),
+
     html.Div([
         html.Button("⬇️ Download JSON", id="btn-download-json"),
         Download(id="download-json"),
