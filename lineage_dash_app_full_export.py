@@ -94,6 +94,16 @@ app.layout = html.Div([
             placeholder="None (Use Fate Colors)",
             style={'width': '300px'}
         )
+        dcc.Dropdown(
+    id="layout-selector",
+    options=[
+        {"label": "Tree (breadthfirst)", "value": "breadthfirst"},
+        {"label": "Radial", "value": "concentric"}
+    ],
+    value="breadthfirst",
+    style={"width": "300px"}
+)
+
     ], style={'margin': '10px'}),
 
     html.Div([
