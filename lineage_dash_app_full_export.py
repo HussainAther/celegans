@@ -1,13 +1,14 @@
-import json
+import json 
 import base64
 import io
 import dash
-from dash import dcc, html, Input, Output, State
+from dash import dcc, html, Input, Output, State, ctx
 import dash_cytoscape as cyto
 from dash_extensions.enrich import DashProxy, MultiplexerTransform
 from dash.exceptions import PreventUpdate
 import networkx as nx
 import pandas as pd
+import numpy as np
 from dash_extensions import Download
 from dash_extensions.snippets import send_string
 
@@ -30,7 +31,7 @@ G.add_edges_from([
     ("P4", "Z3")
 ])
 
-# Sample fates and expression
+# Add sample metadata
 fates = {
     "ABa": "neuron", "ABp": "neuron", "EMS": "gut", "P2": "germline",
     "MS": "muscle", "E": "gut", "C": "muscle", "P3": "germline",
@@ -49,6 +50,7 @@ for node in G.nodes:
     G.nodes[node]["fate"] = fates.get(node, "undiff")
     G.nodes[node]["expression"] = expression_df.loc[node].to_dict() if node in expression_df.index else {}
 
+# Map fates to colors
 fate_colors = {
     "neuron": "#1f77b4",
     "muscle": "#2ca02c",
@@ -57,36 +59,71 @@ fate_colors = {
     "undiff": "#bbbbbb"
 }
 
-def nx_to_cytoscape(G, gene=None):
-    nodes, edges = [], []
+def nx_to_cytoscape(G, gene_r=None, gene_g=None, gene_b=None):
+    nodes = []
+    edges = []
     for node in G.nodes:
         meta = G.nodes[node]
         expr = meta.get("expression", {})
-        color = fate_colors.get(meta.get("fate", "undiff"), "#bbbbbb")
-        if gene and gene in expr:
-            val = expr[gene]
-            color = f"rgba(255, 0, 0, {val})"
+        if gene_r and gene_g and gene_b:
+            r = int(255 * expr.get(gene_r, 0))
+            g = int(255 * expr.get(gene_g, 0))
+            b = int(255 * expr.get(gene_b, 0))
+            color = f"rgb({r}, {g}, {b})"
+        else:
+            color = fate_colors.get(meta.get("fate", "undiff"), "#bbbbbb")
         nodes.append({"data": {"id": node, "label": node}, "style": {"background-color": color}})
     for u, v in G.edges:
         edges.append({"data": {"source": u, "target": v}})
     return nodes + edges
+
 
 app = DashProxy(prevent_initial_callbacks=True, transforms=[MultiplexerTransform()])
 
 app.layout = html.Div([
     html.H1("🧬 C. elegans Lineage Explorer"),
     html.Div([
-        html.Label("Gene Expression Overlay:"),
+        html.Label("RGB Gene Overlay:"),
+html.Div([
+    html.Div([
+        html.Label("Red:"),
+        dcc.Dropdown(id="gene-red", options=[{"label": g, "value": g} for g in expression_df.columns], style={"width": "200px"})
+    ]),
+    html.Div([
+        html.Label("Green:"),
+        dcc.Dropdown(id="gene-green", options=[{"label": g, "value": g} for g in expression_df.columns], style={"width": "200px"})
+    ]),
+    html.Div([
+        html.Label("Blue:"),
+        dcc.Dropdown(id="gene-blue", options=[{"label": g, "value": g} for g in expression_df.columns], style={"width": "200px"})
+    ])
+], style={"display": "flex", "gap": "20px"}),
+html.Br(),
+
+        html.Label("Search Cell by Name:"),
+        dcc.Input(id="cell-search", type="text", placeholder="e.g., EMS", debounce=True),
+        html.Br(),
+        html.Label("Layout:"),
         dcc.Dropdown(
-            id="gene-selector",
-            options=[{"label": gene, "value": gene} for gene in expression_df.columns],
-            value=None,
-            placeholder="Select a gene to color nodes",
+            id="layout-selector",
+            options=[
+                {"label": "Tree (Breadthfirst)", "value": "breadthfirst"},
+                {"label": "Radial (Circle)", "value": "circle"}
+            ],
+            value="breadthfirst",
             style={"width": "300px"}
         ),
         html.Br(),
-        html.Label("Search Cell by Name:"),
-        dcc.Input(id="cell-search", type="text", placeholder="e.g., EMS", debounce=True),
+        html.Label("Theme:"),
+        dcc.Dropdown(
+            id="theme-selector",
+            options=[
+                {"label": "Light", "value": "light"},
+                {"label": "Dark", "value": "dark"}
+            ],
+            value="light",
+            style={"width": "200px"}
+        ),
         html.Div(id="hover-tooltip", style={"marginTop": "10px"})
     ]),
     cyto.Cytoscape(
@@ -95,6 +132,18 @@ app.layout = html.Div([
         layout={"name": "breadthfirst"},
         style={"width": "100%", "height": "600px"},
     ),
+    cyto.Cytoscape(
+    id="cytoscape-lineage",
+    elements=nx_to_cytoscape(G),
+    layout={"name": "breadthfirst"},
+    style={"width": "100%", "height": "600px"},
+    userZoomingEnabled=True,
+    userPanningEnabled=True,
+    boxSelectionEnabled=True,
+    autoungrabify=False,  # allow user to grab/move nodes
+    autolock=False        # nodes are not locked by default
+),
+
     html.Div([
         html.Button("⬇️ Download JSON", id="btn-download-json"),
         Download(id="download-json"),
@@ -109,8 +158,13 @@ app.layout = html.Div([
 
 @app.callback(
     Output("cytoscape-lineage", "elements"),
-    Input("gene-selector", "value")
+    Input("gene-red", "value"),
+    Input("gene-green", "value"),
+    Input("gene-blue", "value")
 )
+def update_rgb_overlay(r, g, b):
+    return nx_to_cytoscape(G, r, g, b)
+
 def update_elements(gene):
     return nx_to_cytoscape(G, gene)
 
@@ -141,6 +195,34 @@ def center_on_node(cell_name, elements):
         if el.get("data", {}).get("id") == cell_name:
             return 2, {"x": 0, "y": 0}
     return dash.no_update, dash.no_update
+
+@app.callback(
+    Output("cytoscape-lineage", "layout"),
+    Input("layout-selector", "value")
+)
+def update_layout(layout_name):
+    return {"name": layout_name}
+
+@app.callback(
+    Output("cytoscape-lineage", "stylesheet"),
+    Input("theme-selector", "value")
+)
+def update_theme(theme):
+    base_stylesheet = [
+        {"selector": "node", "style": {"label": "data(label)"}}
+    ]
+    if theme == "dark":
+        return base_stylesheet + [
+            {"selector": "node", "style": {"color": "white", "background-color": "#888"}},
+            {"selector": "edge", "style": {"line-color": "#999"}},
+            {"selector": "core", "style": {"background-color": "#111"}}
+        ]
+    else:
+        return base_stylesheet + [
+            {"selector": "node", "style": {"color": "black", "background-color": "#ccc"}},
+            {"selector": "edge", "style": {"line-color": "#666"}},
+            {"selector": "core", "style": {"background-color": "#fff"}}
+        ]
 
 @app.callback(
     Output("download-json", "data"),
