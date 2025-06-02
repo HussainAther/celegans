@@ -2,12 +2,13 @@ import json
 import base64
 import io
 import dash
-from dash import dcc, html, Input, Output, State
+from dash import dcc, html, Input, Output, State, ctx
 import dash_cytoscape as cyto
 from dash_extensions.enrich import DashProxy, MultiplexerTransform
 from dash.exceptions import PreventUpdate
 import networkx as nx
 import pandas as pd
+import numpy as np
 from dash_extensions import Download
 from dash_extensions.snippets import send_string
 
@@ -30,7 +31,7 @@ G.add_edges_from([
     ("P4", "Z3")
 ])
 
-# Sample fates and expression
+# Add sample metadata
 fates = {
     "ABa": "neuron", "ABp": "neuron", "EMS": "gut", "P2": "germline",
     "MS": "muscle", "E": "gut", "C": "muscle", "P3": "germline",
@@ -49,6 +50,7 @@ for node in G.nodes:
     G.nodes[node]["fate"] = fates.get(node, "undiff")
     G.nodes[node]["expression"] = expression_df.loc[node].to_dict() if node in expression_df.index else {}
 
+# Map fates to colors
 fate_colors = {
     "neuron": "#1f77b4",
     "muscle": "#2ca02c",
@@ -58,14 +60,15 @@ fate_colors = {
 }
 
 def nx_to_cytoscape(G, gene=None):
-    nodes, edges = [], []
+    nodes = []
+    edges = []
     for node in G.nodes:
         meta = G.nodes[node]
         expr = meta.get("expression", {})
         color = fate_colors.get(meta.get("fate", "undiff"), "#bbbbbb")
         if gene and gene in expr:
             val = expr[gene]
-            color = f"rgba(255, 0, 0, {val})"
+            color = f"rgba(255, 0, 0, {val})"  # red intensity
         nodes.append({"data": {"id": node, "label": node}, "style": {"background-color": color}})
     for u, v in G.edges:
         edges.append({"data": {"source": u, "target": v}})
@@ -84,21 +87,31 @@ app.layout = html.Div([
             placeholder="Select a gene to color nodes",
             style={"width": "300px"}
         ),
-        html.Label("Layout:"),
-dcc.Dropdown(
-    id="layout-selector",
-    options=[
-        {"label": "Tree (Breadthfirst)", "value": "breadthfirst"},
-        {"label": "Radial (Circle)", "value": "circle"}
-    ],
-    value="breadthfirst",
-    style={"width": "300px"}
-),
-html.Br(),
-
         html.Br(),
         html.Label("Search Cell by Name:"),
         dcc.Input(id="cell-search", type="text", placeholder="e.g., EMS", debounce=True),
+        html.Br(),
+        html.Label("Layout:"),
+        dcc.Dropdown(
+            id="layout-selector",
+            options=[
+                {"label": "Tree (Breadthfirst)", "value": "breadthfirst"},
+                {"label": "Radial (Circle)", "value": "circle"}
+            ],
+            value="breadthfirst",
+            style={"width": "300px"}
+        ),
+        html.Br(),
+        html.Label("Theme:"),
+        dcc.Dropdown(
+            id="theme-selector",
+            options=[
+                {"label": "Light", "value": "light"},
+                {"label": "Dark", "value": "dark"}
+            ],
+            value="light",
+            style={"width": "200px"}
+        ),
         html.Div(id="hover-tooltip", style={"marginTop": "10px"})
     ]),
     cyto.Cytoscape(
@@ -155,18 +168,38 @@ def center_on_node(cell_name, elements):
     return dash.no_update, dash.no_update
 
 @app.callback(
-    Output("download-json", "data"),
-    Input("btn-download-json", "n_clicks"),
-    prevent_initial_call=True
-)
-
-@app.callback(
     Output("cytoscape-lineage", "layout"),
     Input("layout-selector", "value")
 )
 def update_layout(layout_name):
     return {"name": layout_name}
 
+@app.callback(
+    Output("cytoscape-lineage", "stylesheet"),
+    Input("theme-selector", "value")
+)
+def update_theme(theme):
+    base_stylesheet = [
+        {"selector": "node", "style": {"label": "data(label)"}}
+    ]
+    if theme == "dark":
+        return base_stylesheet + [
+            {"selector": "node", "style": {"color": "white", "background-color": "#888"}},
+            {"selector": "edge", "style": {"line-color": "#999"}},
+            {"selector": "core", "style": {"background-color": "#111"}}
+        ]
+    else:
+        return base_stylesheet + [
+            {"selector": "node", "style": {"color": "black", "background-color": "#ccc"}},
+            {"selector": "edge", "style": {"line-color": "#666"}},
+            {"selector": "core", "style": {"background-color": "#fff"}}
+        ]
+
+@app.callback(
+    Output("download-json", "data"),
+    Input("btn-download-json", "n_clicks"),
+    prevent_initial_call=True
+)
 def download_json(n):
     lineage_json = nx.node_link_data(G)
     return send_string(json.dumps(lineage_json, indent=2), "lineage.json")
