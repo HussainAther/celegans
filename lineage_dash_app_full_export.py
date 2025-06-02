@@ -59,35 +59,47 @@ fate_colors = {
     "undiff": "#bbbbbb"
 }
 
-def nx_to_cytoscape(G, gene=None):
+def nx_to_cytoscape(G, gene_r=None, gene_g=None, gene_b=None):
     nodes = []
     edges = []
     for node in G.nodes:
         meta = G.nodes[node]
         expr = meta.get("expression", {})
-        color = fate_colors.get(meta.get("fate", "undiff"), "#bbbbbb")
-        if gene and gene in expr:
-            val = expr[gene]
-            color = f"rgba(255, 0, 0, {val})"  # red intensity
+        if gene_r and gene_g and gene_b:
+            r = int(255 * expr.get(gene_r, 0))
+            g = int(255 * expr.get(gene_g, 0))
+            b = int(255 * expr.get(gene_b, 0))
+            color = f"rgb({r}, {g}, {b})"
+        else:
+            color = fate_colors.get(meta.get("fate", "undiff"), "#bbbbbb")
         nodes.append({"data": {"id": node, "label": node}, "style": {"background-color": color}})
     for u, v in G.edges:
         edges.append({"data": {"source": u, "target": v}})
     return nodes + edges
+
 
 app = DashProxy(prevent_initial_callbacks=True, transforms=[MultiplexerTransform()])
 
 app.layout = html.Div([
     html.H1("🧬 C. elegans Lineage Explorer"),
     html.Div([
-        html.Label("Gene Expression Overlay:"),
-        dcc.Dropdown(
-            id="gene-selector",
-            options=[{"label": gene, "value": gene} for gene in expression_df.columns],
-            value=None,
-            placeholder="Select a gene to color nodes",
-            style={"width": "300px"}
-        ),
-        html.Br(),
+        html.Label("RGB Gene Overlay:"),
+html.Div([
+    html.Div([
+        html.Label("Red:"),
+        dcc.Dropdown(id="gene-red", options=[{"label": g, "value": g} for g in expression_df.columns], style={"width": "200px"})
+    ]),
+    html.Div([
+        html.Label("Green:"),
+        dcc.Dropdown(id="gene-green", options=[{"label": g, "value": g} for g in expression_df.columns], style={"width": "200px"})
+    ]),
+    html.Div([
+        html.Label("Blue:"),
+        dcc.Dropdown(id="gene-blue", options=[{"label": g, "value": g} for g in expression_df.columns], style={"width": "200px"})
+    ])
+], style={"display": "flex", "gap": "20px"}),
+html.Br(),
+
         html.Label("Search Cell by Name:"),
         dcc.Input(id="cell-search", type="text", placeholder="e.g., EMS", debounce=True),
         html.Br(),
@@ -146,8 +158,13 @@ app.layout = html.Div([
 
 @app.callback(
     Output("cytoscape-lineage", "elements"),
-    Input("gene-selector", "value")
+    Input("gene-red", "value"),
+    Input("gene-green", "value"),
+    Input("gene-blue", "value")
 )
+def update_rgb_overlay(r, g, b):
+    return nx_to_cytoscape(G, r, g, b)
+
 def update_elements(gene):
     return nx_to_cytoscape(G, gene)
 
