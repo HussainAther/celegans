@@ -1,178 +1,198 @@
+import json
+import base64
+import io
 import dash
-from dash import html, dcc, Input, Output
+from dash import dcc, html, Input, Output, State
 import dash_cytoscape as cyto
+from dash_extensions.enrich import DashProxy, MultiplexerTransform
+from dash.exceptions import PreventUpdate
 import networkx as nx
 import pandas as pd
-import json
 from dash_extensions import Download
 from dash_extensions.snippets import send_string
 
-from build_initial_lineage import build_lineage_tree, add_random_syncytial_cells
-from fate_utils import assign_cell_fates
-
-# Expression data
-expression_df = pd.DataFrame([
-    {"cell": "ABa", "hlh-1": 0.89, "end-1": 0.85, "pal-1": 0.81},
-    {"cell": "ABp", "hlh-1": 0.39, "end-1": 0.57, "pal-1": 0.23},
-    {"cell": "EMS", "hlh-1": 0.98, "end-1": 0.08, "pal-1": 0.23},
-    {"cell": "P2",  "hlh-1": 0.37, "end-1": 0.30, "pal-1": 0.03},
-    {"cell": "MS",  "hlh-1": 0.40, "end-1": 0.89, "pal-1": 0.09},
-    {"cell": "E",   "hlh-1": 0.50, "end-1": 0.93, "pal-1": 0.85},
-    {"cell": "C",   "hlh-1": 0.59, "end-1": 0.08, "pal-1": 0.75},
-    {"cell": "P3",  "hlh-1": 0.34, "end-1": 0.91, "pal-1": 0.80},
-    {"cell": "D",   "hlh-1": 0.96, "end-1": 0.68, "pal-1": 0.32},
-    {"cell": "P4",  "hlh-1": 0.40, "end-1": 0.82, "pal-1": 0.32},
-    {"cell": "Z2",  "hlh-1": 0.42, "end-1": 0.47, "pal-1": 0.22},
-    {"cell": "Z3",  "hlh-1": 0.11, "end-1": 0.65, "pal-1": 0.34}
+# Sample lineage tree
+G = nx.DiGraph()
+G.add_edges_from([
+    ("Zygote", "AB"),
+    ("Zygote", "P1"),
+    ("AB", "ABa"),
+    ("AB", "ABp"),
+    ("P1", "EMS"),
+    ("P1", "P2"),
+    ("EMS", "MS"),
+    ("EMS", "E"),
+    ("P2", "C"),
+    ("P2", "P3"),
+    ("P3", "D"),
+    ("P3", "P4"),
+    ("P4", "Z2"),
+    ("P4", "Z3")
 ])
 
-FATE_COLORS = {
-    "neuron": "purple", "muscle": "red", "skin": "tan", "gut": "green",
-    "germline": "blue", "progenitor": "lightblue", "undifferentiated": "gray", None: "lightgray"
+# Sample fates and expression
+fates = {
+    "ABa": "neuron", "ABp": "neuron", "EMS": "gut", "P2": "germline",
+    "MS": "muscle", "E": "gut", "C": "muscle", "P3": "germline",
+    "D": "muscle", "P4": "germline", "Z2": "germline", "Z3": "germline"
 }
 
-def get_expression_color(val):
-    if val is None:
-        return "lightgray"
-    r = int(255 * (1 - val))
-    g = int(255 * (1 - abs(0.5 - val)))
-    b = int(255 * val)
-    return f"rgb({r},{g},{b})"
+expression_df = pd.DataFrame([
+    {"cell": "ABa", "hlh-1": 0.8, "end-1": 0.2, "pal-1": 0.1},
+    {"cell": "ABp", "hlh-1": 0.6, "end-1": 0.3, "pal-1": 0.2},
+    {"cell": "EMS", "hlh-1": 0.3, "end-1": 0.9, "pal-1": 0.2},
+    {"cell": "P2", "hlh-1": 0.1, "end-1": 0.2, "pal-1": 0.8},
+])
+expression_df.set_index("cell", inplace=True)
 
-G = build_lineage_tree()
-add_random_syncytial_cells(G, num_cells=10)
-assign_cell_fates(G)
+for node in G.nodes:
+    G.nodes[node]["fate"] = fates.get(node, "undiff")
+    G.nodes[node]["expression"] = expression_df.loc[node].to_dict() if node in expression_df.index else {}
 
-for _, row in expression_df.iterrows():
-    if row["cell"] in G.nodes:
-        G.nodes[row["cell"]]["expression"] = row.drop("cell").to_dict()
+fate_colors = {
+    "neuron": "#1f77b4",
+    "muscle": "#2ca02c",
+    "gut": "#ff7f0e",
+    "germline": "#d62728",
+    "undiff": "#bbbbbb"
+}
 
-def nx_to_cytoscape(G, time_cutoff=None, fate_filter=None, gene=None):
-    elements = []
+def nx_to_cytoscape(G, gene=None):
+    nodes, edges = [], []
     for node in G.nodes:
-        div_time = G.nodes[node].get("division_time", 999)
-        if time_cutoff is not None and div_time > time_cutoff:
-            continue
-        if fate_filter and G.nodes[node].get("fate") != fate_filter:
-            continue
+        meta = G.nodes[node]
+        expr = meta.get("expression", {})
+        color = fate_colors.get(meta.get("fate", "undiff"), "#bbbbbb")
+        if gene and gene in expr:
+            val = expr[gene]
+            color = f"rgba(255, 0, 0, {val})"
+        nodes.append({"data": {"id": node, "label": node}, "style": {"background-color": color}})
+    for u, v in G.edges:
+        edges.append({"data": {"source": u, "target": v}})
+    return nodes + edges
 
-        sync = G.nodes[node].get("syncytial", False)
-        shape = "rectangle" if sync else "ellipse"
-
-        if gene:
-            expr_val = G.nodes[node].get("expression", {}).get(gene)
-            color = get_expression_color(expr_val)
-        else:
-            fate = G.nodes[node].get("fate", "unknown")
-            color = FATE_COLORS.get(fate, "lightgray")
-
-        elements.append({
-            'data': {'id': node, 'label': node},
-            'style': {'shape': shape, 'background-color': color, 'label': node}
-        })
-
-    for source, target in G.edges:
-        if time_cutoff:
-            if G.nodes[source].get("division_time", 999) > time_cutoff:
-                continue
-            if G.nodes[target].get("division_time", 999) > time_cutoff:
-                continue
-        elements.append({'data': {'source': source, 'target': target}})
-    return elements
-
-app = dash.Dash(__name__)
-app.title = "🧬 Lineage Tree with Gene Expression"
+app = DashProxy(prevent_initial_callbacks=True, transforms=[MultiplexerTransform()])
 
 app.layout = html.Div([
-    html.H2("🧬 Lineage Tree with Gene Expression Overlay"),
-
+    html.H1("🧬 C. elegans Lineage Explorer"),
     html.Div([
-        html.Label("Color by Gene Expression:"),
+        html.Label("Gene Expression Overlay:"),
         dcc.Dropdown(
             id="gene-selector",
-            options=[{"label": gene, "value": gene} for gene in ["hlh-1", "end-1", "pal-1"]],
-            placeholder="None (Use Fate Colors)",
-            style={'width': '300px'}
-        )
-    ], style={'margin': '10px'}),
-
-    html.Div([
-        html.Label("Expression Level Legend:"),
-        html.Img(src="https://i.imgur.com/Zc5ChbE.png", style={"width": "300px"})
-    ], id="legend-div", style={'margin': '10px', 'display': 'none'}),
-
-    dcc.Slider(
-        id='time-slider',
-        min=0,
-        max=max(nx.get_node_attributes(G, "division_time").values()),
-        value=0,
-        marks={i: f"{i} min" for i in range(0, 65, 5)},
-        tooltip={"placement": "bottom"}
-    ),
-
+            options=[{"label": gene, "value": gene} for gene in expression_df.columns],
+            value=None,
+            placeholder="Select a gene to color nodes",
+            style={"width": "300px"}
+        ),
+        html.Br(),
+        html.Label("Search Cell by Name:"),
+        dcc.Input(id="cell-search", type="text", placeholder="e.g., EMS", debounce=True),
+        html.Div(id="hover-tooltip", style={"marginTop": "10px"})
+    ]),
     cyto.Cytoscape(
-        id='cytoscape-lineage',
-        layout={'name': 'breadthfirst', 'roots': ['Zygote']},
-        style={'width': '100%', 'height': '700px'},
-        elements=nx_to_cytoscape(G, time_cutoff=0),
-        stylesheet=[
-            {'selector': 'node', 'style': {
-                'width': '50px', 'height': '50px',
-                'text-valign': 'center', 'text-halign': 'center',
-                'color': 'black', 'font-size': '10px'
-            }},
-            {'selector': 'edge', 'style': {'line-color': '#ccc', 'width': 2}},
-        ],
-        userZoomingEnabled=True,
-        userPanningEnabled=True
+        id="cytoscape-lineage",
+        elements=nx_to_cytoscape(G),
+        layout={"name": "breadthfirst"},
+        style={"width": "100%", "height": "600px"},
     ),
-
-    html.Div(id="hover-tooltip", style={"marginTop": "10px", "fontSize": "16px"}),
-    html.Button("⬇️ Download JSON", id="btn-download-json"),
-    Download(id="download-json")
+    html.Div([
+        html.Button("⬇️ Download JSON", id="btn-download-json"),
+        Download(id="download-json"),
+        html.Br(), html.Br(),
+        html.Button("📷 Download PNG", id="btn-download-png", n_clicks=0),
+        dcc.Store(id="trigger-png"),
+        html.Br(), html.Br(),
+        html.Button("🖼️ Download SVG", id="btn-download-svg", n_clicks=0),
+        dcc.Store(id="trigger-svg"),
+    ])
 ])
 
 @app.callback(
     Output("cytoscape-lineage", "elements"),
-    Input("time-slider", "value"),
     Input("gene-selector", "value")
 )
-def update_tree(time_val, gene_val):
-    return nx_to_cytoscape(G, time_cutoff=time_val, gene=gene_val)
+def update_elements(gene):
+    return nx_to_cytoscape(G, gene)
 
 @app.callback(
     Output("hover-tooltip", "children"),
     Input("cytoscape-lineage", "mouseoverNodeData"),
     Input("gene-selector", "value")
 )
-def show_hover_expression(node_data, gene):
-    if not node_data or not gene:
-        return "Hover on a node to see expression value."
-    node_id = node_data.get("id")
-    value = G.nodes[node_id].get("expression", {}).get(gene)
-    if value is not None:
-        return f"🧬 {node_id} – {gene}: {value:.2f}"
-    return f"{node_id} has no expression data for {gene}."
+def show_hover(node_data, gene):
+    if not node_data:
+        return "Hover over a node."
+    if gene:
+        val = G.nodes[node_data["id"]].get("expression", {}).get(gene, None)
+        if val is not None:
+            return f"{node_data['id']} – {gene}: {val:.2f}"
+    return f"{node_data['id']}"
 
 @app.callback(
-    Output("legend-div", "style"),
-    Input("gene-selector", "value")
+    Output("cytoscape-lineage", "zoom"),
+    Output("cytoscape-lineage", "pan"),
+    Input("cell-search", "value"),
+    State("cytoscape-lineage", "elements")
 )
-def toggle_legend(gene):
-    if gene:
-        return {'margin': '10px', 'display': 'block'}
-    return {'display': 'none'}
+def center_on_node(cell_name, elements):
+    if not cell_name:
+        raise PreventUpdate
+    for el in elements:
+        if el.get("data", {}).get("id") == cell_name:
+            return 2, {"x": 0, "y": 0}
+    return dash.no_update, dash.no_update
 
 @app.callback(
     Output("download-json", "data"),
     Input("btn-download-json", "n_clicks"),
-    Input("time-slider", "value"),
-    Input("gene-selector", "value"),
     prevent_initial_call=True
 )
-def download_json(n_clicks, time_val, gene_val):
-    elements = nx_to_cytoscape(G, time_cutoff=time_val, gene=gene_val)
-    return send_string(json.dumps(elements, indent=2), filename="lineage_visible.json")
+def download_json(n):
+    lineage_json = nx.node_link_data(G)
+    return send_string(json.dumps(lineage_json, indent=2), "lineage.json")
+
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        let cy = window.cyto_cytoscape_lineage;
+        if (cy && n_clicks > 0) {
+            let pngContent = cy.png({ full: true, scale: 2 });
+            let a = document.createElement("a");
+            a.href = pngContent;
+            a.download = "lineage_tree.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        return "";
+    }
+    """,
+    Output("trigger-png", "data"),
+    Input("btn-download-png", "n_clicks")
+)
+
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        let cy = window.cyto_cytoscape_lineage;
+        if (cy && n_clicks > 0) {
+            let svgContent = cy.svg({ full: true, scale: 1 });
+            let blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = "lineage_tree.svg";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        return "";
+    }
+    """,
+    Output("trigger-svg", "data"),
+    Input("btn-download-svg", "n_clicks")
+)
 
 if __name__ == "__main__":
     app.run_server(debug=True)
