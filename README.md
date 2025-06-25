@@ -1,11 +1,3 @@
-You got it! ✨  
-Let’s make your **`README.md` GitHub-ready**, clear for users, and beautiful enough to impress both researchers and devs.
-
----
-
-## 🧬 Example `README.md` for `c_elegans_lineage`
-
-```markdown
 # 🧬 C. elegans Lineage Toolkit
 
 A Python toolkit and command-line interface (CLI) for modeling, visualizing, animating, and exporting the full embryonic cell lineage of *Caenorhabditis elegans*, including support for syncytial cells, fate annotations, and more.
