@@ -1,0 +1,23 @@
+# pyproject.toml
+
+[project]
+name = "celegans_lineage"
+version = "0.1.0"
+description = "C. elegans lineage tree visualizer with gene expression overlays"
+authors = [
+    { name="Syed Hussain Ather", email="shussainather@gmail.com" }
+]
+dependencies = [
+    "dash >=2.0.0",
+    "dash-cytoscape",
+    "dash-extensions",
+    "networkx",
+    "pandas",
+    "numpy",
+    "matplotlib"
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+celegans-lineage = "dash_app_launcher:main"
+
