@@ -1,4 +1,4 @@
-# 🧬 C. elegans Lineage Toolkit
+# 🧬 C. elegans Lineage Toolkit  
 
 A Python toolkit and command-line interface (CLI) for modeling, visualizing, animating, and exporting the full embryonic cell lineage of *Caenorhabditis elegans*, including support for syncytial cells, fate annotations, and more.
 
