@@ -1,0 +1,17 @@
+| Cell | Parent | FusionGroup        | Time (min) | Fate     |
+| ---- | ------ | ------------------ | ---------- | -------- |
+| AB   | Zygote |                    | 0          | ectoderm |
+| P1   | Zygote |                    | 0          | germline |
+| EMS  | P1     |                    | 20         | endoderm |
+| P2   | P1     |                    | 25         | germline |
+| ABa  | AB     | AB syncytium       | 15         | neuronal |
+| ABp  | AB     | AB syncytium       | 15         | neuronal |
+| MS   | EMS    |                    | 35         | mesoderm |
+| E    | EMS    |                    | 35         | gut      |
+| C    | P2     | C syncytium        | 45         | muscle   |
+| P3   | P2     |                    | 50         | germline |
+| D    | P3     | D syncytium        | 60         | muscle   |
+| P4   | P3     |                    | 70         | germline |
+| Z2   | P4     | Germline syncytium | 80         | germline |
+| Z3   | P4     | Germline syncytium | 80         | germline |
+
