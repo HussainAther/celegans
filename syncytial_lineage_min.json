@@ -1,0 +1,100 @@
+[
+  {
+    "Cell": "AB",
+    "Parent": "Zygote",
+    "FusionGroup": "",
+    "Time": 0,
+    "Fate": "ectoderm"
+  },
+  {
+    "Cell": "P1",
+    "Parent": "Zygote",
+    "FusionGroup": "",
+    "Time": 0,
+    "Fate": "germline"
+  },
+  {
+    "Cell": "EMS",
+    "Parent": "P1",
+    "FusionGroup": "",
+    "Time": 20,
+    "Fate": "endoderm"
+  },
+  {
+    "Cell": "P2",
+    "Parent": "P1",
+    "FusionGroup": "",
+    "Time": 25,
+    "Fate": "germline"
+  },
+  {
+    "Cell": "ABa",
+    "Parent": "AB",
+    "FusionGroup": "AB syncytium",
+    "Time": 15,
+    "Fate": "neuronal"
+  },
+  {
+    "Cell": "ABp",
+    "Parent": "AB",
+    "FusionGroup": "AB syncytium",
+    "Time": 15,
+    "Fate": "neuronal"
+  },
+  {
+    "Cell": "MS",
+    "Parent": "EMS",
+    "FusionGroup": "",
+    "Time": 35,
+    "Fate": "mesoderm"
+  },
+  {
+    "Cell": "E",
+    "Parent": "EMS",
+    "FusionGroup": "",
+    "Time": 35,
+    "Fate": "gut"
+  },
+  {
+    "Cell": "C",
+    "Parent": "P2",
+    "FusionGroup": "C syncytium",
+    "Time": 45,
+    "Fate": "muscle"
+  },
+  {
+    "Cell": "P3",
+    "Parent": "P2",
+    "FusionGroup": "",
+    "Time": 50,
+    "Fate": "germline"
+  },
+  {
+    "Cell": "D",
+    "Parent": "P3",
+    "FusionGroup": "D syncytium",
+    "Time": 60,
+    "Fate": "muscle"
+  },
+  {
+    "Cell": "P4",
+    "Parent": "P3",
+    "FusionGroup": "",
+    "Time": 70,
+    "Fate": "germline"
+  },
+  {
+    "Cell": "Z2",
+    "Parent": "P4",
+    "FusionGroup": "Germline syncytium",
+    "Time": 80,
+    "Fate": "germline"
+  },
+  {
+    "Cell": "Z3",
+    "Parent": "P4",
+    "FusionGroup": "Germline syncytium",
+    "Time": 80,
+    "Fate": "germline"
+  }
+]
