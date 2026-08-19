@@ -4,8 +4,8 @@ import dash_cytoscape as cyto
 import networkx as nx
 import json
 
-from dash_extensions import Download
-from dash_extensions.snippets import send_string
+from dash import dcc 
+from dash.exceptions import PreventUpdate 
 
 from build_initial_lineage import build_lineage_tree, add_random_syncytial_cells
 from fate_utils import assign_cell_fates
@@ -148,29 +148,21 @@ app.layout = html.Div([
 def update_elements(time_value, selected_fate):
     return nx_to_cytoscape(G, time_cutoff=time_value, fate_filter=selected_fate)
 
-# Hover info
+
 @app.callback(
-    Output('hover-data', 'children'),
-    Input('cytoscape-lineage', 'mouseoverNodeData')
+    Output("download-json", "data"),
+    Input("btn-download-json", "n_clicks"),
+    Input("time-slider", "value"),
+    Input("fate-filter", "value"),
+    prevent_initial_call=True,
 )
-def display_hover_metadata(node_data):
-    if node_data is None:
-        return "Hover over a cell to see metadata."
-
-    node_id = node_data.get('id')
-    node = G.nodes.get(node_id, {})
-
-    return html.Div([
-        html.Strong(f"🧬 {node_id}"),
-        html.Br(),
-        f"Fate: {node.get('fate', 'Unknown')}",
-        html.Br(),
-        f"Division time: {node.get('division_time', 'N/A')} min",
-        html.Br(),
-        f"Syncytial: {'Yes' if node.get('syncytial') else 'No'}",
-        html.Br(),
-        f"Nuclei: {node.get('nuclei_count', '-') if node.get('syncytial') else '-'}"
-    ])
+def download_json(n_clicks, time_value, selected_fate):
+    elements = nx_to_cytoscape(
+        G, time_cutoff=time_value, fate_filter=selected_fate
+    )
+    return dict(
+        content=json.dumps(elements, indent=2), filename="lineage_visible.json"
+    )
 
 # Click info
 @app.callback(
