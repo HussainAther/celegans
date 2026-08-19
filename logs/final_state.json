@@ -1,0 +1,8 @@
+{
+    "final_membrane_thickness": 18,
+    "total_peptides_tested": 10000,
+    "inserted": 6,
+    "cytoplasm": 1000,
+    "discarded": 8994,
+    "cytoplasm_full": true
+}
